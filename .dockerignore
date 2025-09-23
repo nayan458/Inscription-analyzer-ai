@@ -1,0 +1,31 @@
+# Ignore Python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore virtual environments
+venv/
+.env/
+*.env
+.inscription/
+
+# Ignore datasets / logs / outputs
+*.log
+*.csv
+*.tsv
+*.json
+*.zip
+*.tar.gz
+*.pth
+*.onnx
+*.pt
+*.h5
+checkpoints/
+datasets/
+models/
+
+# Ignore Git and Docker files
+.git
+.gitignore
+Dockerfile
+docker-compose.yml

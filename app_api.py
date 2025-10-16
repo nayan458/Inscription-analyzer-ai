@@ -10,6 +10,8 @@ import hashlib
 import re
 import html
 from typing import Optional
+from pydantic import BaseModel, validator
+from utils import get_wiki_data
 
 # ---------------- Load Model ----------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -60,6 +62,36 @@ def sanitize_text_output(text: str) -> str:
     sanitized = re.sub(r'<script[^>]*>.*?</script>', '', sanitized, flags=re.IGNORECASE)
     sanitized = re.sub(r'on\w+\s*=', '', sanitized, flags=re.IGNORECASE)
     return sanitized
+
+def sanitize_wiki_title(title: str) -> str:
+    """Sanitize Wikipedia title input."""
+    if not title:
+        raise ValueError("Title cannot be empty")
+    
+    # Remove null bytes and control characters
+    title = title.replace('\x00', '').strip()
+    
+    # Limit length to reasonable Wikipedia title length (e.g., 200 chars)
+    if len(title) > 200:
+        title = title[:200]
+    
+    # Replace disallowed characters with underscores (Wikipedia titles allow letters, numbers, spaces, some punctuation)
+    # But for safety, restrict to alphanumeric, spaces, and basic punctuation
+    title = re.sub(r'[<>:"/\\|?*]', '_', title)
+    
+    # Remove leading/trailing spaces
+    title = title.strip()
+    
+    # Check for malicious patterns
+    forbidden_patterns = [
+        r'<script', r'javascript:', r'eval\(', r'exec\(', r'system\(',
+        r'base64_decode', r'passthru\(', r'shell_exec\('
+    ]
+    for pattern in forbidden_patterns:
+        if re.search(pattern, title, re.IGNORECASE):
+            raise ValueError("Invalid characters or patterns detected in title")
+    
+    return title
 
 # ---------------- Validation Functions ----------------
 def validate_file_extension(filename: str) -> bool:
@@ -154,6 +186,18 @@ def check_inscription(image: Image.Image):
 
     return fine_label, binary_label, confidence
 
+# Request model for Wikipedia fetch
+class WikiRequest(BaseModel):
+    title: str
+
+    @validator('title')
+    def validate_title(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Title cannot be empty')
+        if len(v.strip()) > 200:
+            raise ValueError('Title too long. Maximum 200 characters')
+        return v.strip()
+
 # ---------------- API Endpoints ----------------
 @app.get("/")
 async def health_check():
@@ -188,3 +232,22 @@ async def predict(file: UploadFile = File(...)):
             status_code=400,
             detail="Failed to process image file. Please ensure you're uploading a valid image."
         )
+
+@app.post("/fetch_wiki")
+def fetch_wiki(request: WikiRequest):
+    """Fetch Wikipedia data for a given title."""
+    try:
+        # Additional sanitization
+        sanitized_title = sanitize_wiki_title(request.title)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    result = get_wiki_data(sanitized_title)
+    if result["status"] == "success":
+        # Sanitize output if needed
+        data = result["data"]
+        data['title'] = sanitize_text_output(data['title'])
+        data['summary'] = sanitize_text_output(data['summary'])
+        return data
+    else:
+        raise HTTPException(status_code=404, detail=result["message"])

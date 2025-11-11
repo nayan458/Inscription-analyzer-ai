@@ -12,6 +12,7 @@ import html
 from typing import Optional
 from pydantic import BaseModel, validator
 from utils import get_wiki_data
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # ---------------- Load Model ----------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -21,6 +22,9 @@ text = clip.tokenize(categories).to(device)
 
 # ---------------- FastAPI App ----------------
 app = FastAPI(title="Stone Inscription Classifier API")
+
+# Prometheus Instrumentation
+Instrumentator().instrument(app).expose(app)
 
 app.add_middleware(
     CORSMiddleware,

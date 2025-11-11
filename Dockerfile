@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --upgrade pip && pip install uv
 
 # Copy requirements
-COPY requirement_new.txt .
+COPY requirements.txt .
 
 ENV UV_HTTP_TIMEOUT=120
 # Install dependencies into a temporary directory
@@ -25,9 +25,9 @@ COPY wheels/ /wheels/
 RUN uv pip install --no-cache-dir --system /wheels/* || true
 RUN uv pip install --no-cache-dir --system \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r requirement_new.txt
+    -r requirements.txt
 
-# RUN uv pip install --no-cache-dir --system -r requirement_new.txt
+# RUN uv pip install --no-cache-dir --system -r requirements.txt
 
 
 # -------- Stage 2: Runtime --------

@@ -24,6 +24,7 @@ checkpoints/
 datasets/
 models/
 
+logs
 # Ignore Git and Docker files
 .git
 .gitignore
